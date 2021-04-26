@@ -9,7 +9,7 @@ from rest_framework.response import Response
 from .models import Order
 from .serializers import OrderSerializer
 
-
+from django.http import FileResponse
 from django.core.files import File
 from django.http import HttpResponse
 from rest_framework.decorators import api_view
@@ -50,32 +50,41 @@ def start_payment(request):
 
 @api_view(['POST'])
 def handle_payment_success(request):
-  
-    res = json.loads(request.data["response"])
+    print(json.dumps(request.data['params']['razorpay_order_id']))
 
+    # res1 = json.dumps(request.data)
+
+    # res = json.loads(res1)
+    # # print(res1.params['razorpay_order_id'])
    
 
-    ord_id = ""
-    raz_pay_id = ""
-    raz_signature = ""
+    ord_id = request.data['params']['razorpay_order_id']
+    raz_pay_id = request.data['params']['razorpay_payment_id']
+    raz_signature =  request.data['params']['razorpay_signature']
+    
 
+    # for key in res.keys():
+    #     if key == 'razorpay_order_id':
+    #         ord_id = res[key]
+    #         # print(ord_id)
+    #     elif key == 'razorpay_payment_id':
+    #         raz_pay_id = res[key]
+    #         # print(raz_pay_id)
+    #     elif key == 'razorpay_signature':
+    #         raz_signature = res[key]
+    #         # print(raz_signature)
 
-    for key in res.keys():
-        if key == 'razorpay_order_id':
-            ord_id = res[key]
-        elif key == 'razorpay_payment_id':
-            raz_pay_id = res[key]
-        elif key == 'razorpay_signature':
-            raz_signature = res[key]
-
-    order = Order.objects.get(order_payment_id=ord_id)
-
+    
+    try:
+       order = Order.objects.get(order_payment_id=ord_id)
+    except Order.DoesNotExist:
+       order = None
     data = {
         'razorpay_order_id': ord_id,
         'razorpay_payment_id': raz_pay_id,
         'razorpay_signature': raz_signature
     }
-
+    print(data)
     client = razorpay.Client(auth=(env('PUBLIC_KEY'), env('SECRET_KEY')))
 
     check = client.utility.verify_payment_signature(data)
@@ -85,21 +94,25 @@ def handle_payment_success(request):
         return Response({'error': 'Something went wrong'})
 
     order.isPaid = True
-    order.save()
-    
 
+    order.save()
+    # filename='Gateways Comparision.pdf'
+    # response=DownloadPDF(filename)
     path_to_file = MEDIA_ROOT + '/Gateways Comparision.pdf'
     f = open(path_to_file, 'rb')
-    pdfFile = File(f)
-    response = HttpResponse(pdfFile.read(),content_type='application/pdf')
-    response['Content-Disposition'] =  'attachment; filename="Gateways Comparision.pdf"'
+    response = FileResponse(f)
+    # pdfFile = File(f)
+    # response = HttpResponse(pdfFile.read(),content_type='application/pdf')
+    # response['Content-Disposition'] =  'attachment; filename="Gateways Comparision.pdf"'
+    print(response)
+   
     return response
     
 
 
 
 
-# @api_view(['GET'])
+
 # def DownloadPDF(self):
 #     path_to_file = MEDIA_ROOT + '/Gateways Comparision.pdf'
 #     f = open(path_to_file, 'rb')
